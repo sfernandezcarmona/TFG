@@ -18,37 +18,40 @@ graph = Graph('bolt://localhost:7687', auth=('neo4j', 'etsisi123'))
 
 
 def save_post_to_neo4j(post):
-    # Recupera el post de reddit a partir de su id
-    reddit.comment_sort = "controversial"
-    if post.author is not None:
-        # Crea el nodo del post
-        post_node = crearNodoPost(post)
+    try:
+        # Recupera el post de reddit a partir de su id
+        reddit.comment_sort = "controversial"
+        if post.author is not None:
+            # Crea el nodo del post
+            post_node = crearNodoPost(post)
 
-        # Crea el nodo del subreddit y la relacion con el post
-        crearNodoSubreddit(post, post_node)
+            # Crea el nodo del subreddit y la relacion con el post
+            crearNodoSubreddit(post, post_node)
 
-        post_node = crearNodoPost(post)
-        author_node = crearNodoUsuario(post)
-        posted_rel = Relationship(author_node, 'POSTED', post_node)
-        graph.merge(posted_rel, 'POSTED', 'id')
+            post_node = crearNodoPost(post)
+            author_node = crearNodoUsuario(post)
+            posted_rel = Relationship(author_node, 'POSTED', post_node)
+            graph.merge(posted_rel, 'POSTED', 'id')
 
-        # Crea nodos para todos los comentarios de primer nivel del post asi como nodos para los autores de los comentarios
-        for comment in post.comments.list():
-                if isinstance(comment, MoreComments):
-                    continue
-                if comment.author is not None:
-                    # Crea el nodo autor del comentario
-                    user_node = crearNodoUsuario(comment)
+            # Crea nodos para todos los comentarios de primer nivel del post asi como nodos para los autores de los comentarios
+            for comment in post.comments.list():
+                    if isinstance(comment, MoreComments):
+                        continue
+                    if comment.author is not None:
+                        # Crea el nodo autor del comentario
+                        user_node = crearNodoUsuario(comment)
 
-                    # Crea el nodo del comentario
-                    comment_node = crearNodoComentario(comment)
+                        # Crea el nodo del comentario
+                        comment_node = crearNodoComentario(comment)
 
-                    # Crea la relacion entre el nodo del comentario y el nodo de su autor (Usuario)
-                    authored_rel = Relationship(user_node, 'AUTHORED', comment_node)
-                    graph.merge(authored_rel, 'AUTHORED', 'id')
-                    replied_to_rel = Relationship(comment_node, 'REPLIED_TO', post_node)
-                    graph.merge(replied_to_rel, 'REPLIED_TO', 'id')
-        print("Comentarios DONE")
+                        # Crea la relacion entre el nodo del comentario y el nodo de su autor (Usuario)
+                        authored_rel = Relationship(user_node, 'AUTHORED', comment_node)
+                        graph.merge(authored_rel, 'AUTHORED', 'id')
+                        replied_to_rel = Relationship(comment_node, 'REPLIED_TO', post_node)
+                        graph.merge(replied_to_rel, 'REPLIED_TO', 'id')
+            print("Comentarios DONE")
+    except:
+        time.sleep(1)
 
 def crearNodoPost(post):
     if not existeNodoPost(post.id):

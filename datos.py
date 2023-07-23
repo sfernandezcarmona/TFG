@@ -1,9 +1,7 @@
 import praw
-import datetime as dt
-import requests
-from pmaw import PushshiftAPI
 from langdetect import detect
 import time
+from neo4jDriver import *
 
 class Reddit:
     listaTerminos = ["Sumar", "PP", "PSOE", "Unidas Podemos", "VOX", "Partido Popular", "Partido Socialista",
@@ -62,7 +60,6 @@ class Reddit:
     def getSubmissions(self):
 
         submissions = []
-
         subreddits = self.getSubredditsPolitica()
 
         for subreddit in subreddits:
@@ -70,43 +67,13 @@ class Reddit:
             for termino in self.listaTerminos:
                 try:
                     for submission in subreddit.search(termino,limit=None):
-                        count = count + 1
-                        submissions.append(submission)
+                        if not existeNodoPost(submission.id):
+                            count = count + 1
+                            submissions.append(submission)
                 except:
                     time.sleep(1)
             print("Terminado ---------- " + subreddit.display_name + " (", count,")   TOTAL: ", len(submissions))
         return submissions
-
-
-    def submissions_pushshift_praw(self,palabraClave,limit=1000):
-
-        self.getSubredditsPolitica()
-
-        matching_praw_submissions = []
-
-        # Format our search link properly.
-        search_link = ('https://api.pushshift.io/reddit/search/submission?is_video=false&over_18=false&q=' + palabraClave +'&sort_type=num_comments'+ '&limit=' + str(limit))
-
-        # Get the data from Pushshift as JSON.
-        retrieved_data = requests.get(search_link)
-        print(retrieved_data)
-        returned_submissions = retrieved_data.json()['data']
-
-        # Iterate over the returned submissions to convert them to PRAW submission objects.
-        for submission in returned_submissions:
-            # Take the ID, fetch the PRAW submission object, and append to our list
-            praw_submission = self.reddit.submission(id=submission['id'])
-            try:
-                print(submission['id'])
-                titulo = praw_submission.title
-                if detect(titulo) == "es" or detect(titulo) == "en":
-                    print(titulo)
-                    matching_praw_submissions.append(praw_submission)
-            except:
-                pass
-
-        # Return all PRAW submissions that were obtained.
-        return matching_praw_submissions
 
 
 
