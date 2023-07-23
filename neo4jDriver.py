@@ -17,10 +17,9 @@ graph = Graph('bolt://localhost:7687', auth=('neo4j', 'etsisi123'))
 
 
 
-def save_post_to_neo4j(post_id):
+def save_post_to_neo4j(post):
     # Recupera el post de reddit a partir de su id
     reddit.comment_sort = "controversial"
-    post = reddit.submission(id=post_id)
     if post.author is not None:
         # Crea el nodo del post
         post_node = crearNodoPost(post)

@@ -8,10 +8,9 @@ import pandas as pd
 
 
 redditDatos = Reddit()
-listaTerminos = ["Sumar","PP","PSOE","Unidas Podemos","VOX","Partido Popular","Partido Socialista","Podemos","Ultraderecha","Ultraizquierda"]
-for partido in listaTerminos:
-    for post in redditDatos.submissions_pushshift_praw(partido + " españa"):
-        save_post_to_neo4j(post.id)
+
+for post in redditDatos.getSubmissions():
+    save_post_to_neo4j(post)
 
 #for post in subreddit_list:
     #print(post[0])
