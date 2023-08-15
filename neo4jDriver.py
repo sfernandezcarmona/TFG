@@ -107,9 +107,14 @@ def crearNodoUsuario(comment):
         return obtenerNodoUsuario(comment.author.name)
 
 def crearNodoSubreddit(post, post_node):
-    subreddit_node = Node('Subreddit', name=post.subreddit.display_name, subscribers=post.subreddit.subscribers,
-                          description=post.subreddit.public_description, subreddit_type=post.subreddit.subreddit_type)
-    graph.merge(subreddit_node, 'Subreddit', 'name')
+    if not existeNodoSubreddit(post.subreddit.display_name):
+        subreddit_node = Node('Subreddit', name=post.subreddit.display_name, subscribers=post.subreddit.subscribers,
+                              description=post.subreddit.public_description, subreddit_type=post.subreddit.subreddit_type)
+        graph.merge(subreddit_node, 'Subreddit', 'name')
+    else:
+        print("Ya existe el subreddit",post.subreddit.display_name)
+        subreddit_node = obtenerNodoSubreddit(post.subreddit.display_name)
+
     belongs_to_rel = Relationship(post_node, 'BELONGS_TO', subreddit_node)
     graph.merge(belongs_to_rel, 'BELONGS_TO', 'id')
 
@@ -134,6 +139,11 @@ def existeNodoUsuario(nombre):
     result = graph.run(query).data()
     return len(result) > 0
 
+def existeNodoSubreddit(nombre):
+    query = f"MATCH (n:Subreddit) WHERE n.name = '{nombre}' RETURN n"
+    result = graph.run(query).data()
+    return len(result) > 0
+
 def obtenerNodoComentario(id):
     query = f"MATCH (n:Comment) WHERE n.id = '{id}' RETURN n"
     result = graph.run(query).data()
@@ -148,6 +158,13 @@ def obtenerNodoPost(id):
     for record in result:
         post = record['n']
     return post
+
+def obtenerNodoSubreddit(nombre):
+    query = f"MATCH (n:Subreddit) WHERE n.name = '{nombre}' RETURN n"
+    result = graph.run(query).data()
+    for record in result:
+        subreddit = record['n']
+    return subreddit
 
 def obtenerNodoUsuario(nombre):
     query = f"MATCH (u:User) WHERE u.name = '{nombre}' RETURN u"

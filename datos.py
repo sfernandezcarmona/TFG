@@ -1,11 +1,10 @@
 import praw
-from langdetect import detect
 import time
 from neo4jDriver import *
 
 class Reddit:
     listaTerminos = ["Sumar", "PP", "PSOE", "Unidas Podemos", "VOX", "Partido Popular", "Partido Socialista",
-                     "Podemos", "Ultraderecha", "Ultraizquierda"]
+                     "Podemos", "Ultraderecha", "Ultraizquierda","Fascista","Fascismo","Comunismo","Comunista"]
 
     reddit = praw.Reddit(
         client_id="4sn_H1XsYXdsaBCu08CbrA",
@@ -14,21 +13,6 @@ class Reddit:
         username="bp0330UPM",
         user_agent="TFGBP0330",
     )
-
-    def obtenerUsuario(self,usr):
-        return self.reddit.redditor(usr)
-
-    def obtenerComentario(self,cmnt):
-        return self.reddit.comment(cmnt)
-
-    def obtenerPublicacion(self,pub):
-        return self.reddit.submission(pub)
-
-
-    def obtenerDatosSubreddit(self,subreddit):
-        for submission in self.reddit.subreddit(subreddit).hot(limit=10):
-            print(submission.title)
-
 
     #Devuelve hasta 1000 publicaciones del usuario indicado (limitacion de la API)
     def obtenerPublicacionesUsuario(self,usuario):
