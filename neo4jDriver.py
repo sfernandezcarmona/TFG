@@ -34,7 +34,7 @@ def save_post_to_neo4j(post):
             graph.merge(posted_rel, 'POSTED', 'id')
 
             # Crea nodos para todos los comentarios de primer nivel del post asi como nodos para los autores de los comentarios
-            for comment in post.comments.list():
+            for comment in post.contenido.list():
                     if isinstance(comment, MoreComments):
                         continue
                     if comment.author is not None:
@@ -60,7 +60,7 @@ def crearNodoPost(post):
                              '%d-%m-%Y %H:%M:%S'),
                          num_comments=post.num_comments,
                          author=post.author.name if post.author is not None else None, score=post.score,
-                         content=post.selftext, url=post.url,dioma=detect(post.title))
+                         content=post.selftext, url=post.url)
         graph.merge(post_node, 'Post', 'id')
         print("Post " + post.title + " creado!")
         return post_node
