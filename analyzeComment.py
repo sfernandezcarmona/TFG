@@ -1,81 +1,16 @@
-import nltk
+
 from pysentimiento import create_analyzer
-from nltk.probability import FreqDist
 from py2neo import Graph,Node, Relationship
 
-import nltk.data
 
 
-
-def scoreCommentLargo(comment,idioma,analyzer):
-    tokenizer = nltk.data.load('tokenizers/punkt/spanish.pickle')
-    comentarios = tokenizer.tokenize(comment)
-    sentiment_score_neg= 0
-    sentiment_score_neu = 0
-    sentiment_score_pos = 0
-    for comentario in comentarios:
-        sentiment_score = analyzer.predict(comment)
-        sentiment_score_neg = sentiment_score_neg + sentiment_score.probas["NEG"]
-        sentiment_score_neu = sentiment_score_neu + sentiment_score.probas["NEU"]
-        sentiment_score_pos = sentiment_score_pos + sentiment_score.probas["POS"]
-
-    sentiment_score_neg = sentiment_score_neg/len(comentarios)
-    sentiment_score_neu = sentiment_score_neu/len(comentarios)
-    sentiment_score_pos = sentiment_score_pos/len(comentarios)
-
-
-    return sentiment_score_neg,sentiment_score_neu,sentiment_score_pos
-
-
-def add_properties_to_nodes(node,topics,sentiment_score_neg,sentiment_score_neu,sentiment_score_pos,graph):
-    # Add Topics property (list of words)
-    node['Topics'] = topics  # Replace with your desired list of words
-
+def add_properties_to_nodes(node,sentiment,sentiment_score_neg,sentiment_score_neu,sentiment_score_pos,graph):
     # Add Score_NEU, Score_NEG, Score_POS properties (numbers with decimals)
     node['Score_NEU'] = sentiment_score_neu  # Replace with your desired value
     node['Score_NEG'] = sentiment_score_neg  # Replace with your desired value
     node['Score_POS'] = sentiment_score_pos  # Replace with your desired value
+    node['Sentiment'] = sentiment
     graph.push(node)
-
-
-
-
-def checkTieneEntity(comment):
-    query = f"MATCH (c:Comment)-[:HAS_ENTITY]->(e:Entity) WHERE c.id = '{comment['id']}' RETURN c"
-    result = graph.run(query).data()
-    return len(result) > 0
-
-
-
-def analyze_comment(comment,idioma,analyzer):
-    # Clean the text
-    doc = 1
-
-    cleaned_words = [token.lemma_ for token in doc if token.is_alpha and not token.is_stop]
-
-    # Sentiment Analysis
-    analyzerNER = create_analyzer(task="ner", lang="es")
-
-    sentiment_score = analyzer.predict(comment)
-    entidades = analyzerNER.predict(comment)
-    # Access sentiment scores
-
-    # Topic Extraction
-    fdist = FreqDist(cleaned_words)
-    topics = fdist.most_common(5)  # Extract the top 5 most common words as topics
-
-    sentiment_score_neg = sentiment_score.probas["NEG"]
-    sentiment_score_neu = sentiment_score.probas["NEU"]
-    sentiment_score_pos = sentiment_score.probas["POS"]
-
-    for ent in entidades.labels:
-        if(ent == None):
-            sentiment_score_neg,sentiment_score_neu,sentiment_score_pos = scoreCommentLargo(comment,idioma,analyzer)
-            break
-
-
-    return sentiment_score_neg, sentiment_score_neu, sentiment_score_pos, topics,entidades
-
 
 
 def crear_entidad_grafo(node, entity_name, entity_type,graph):
@@ -119,11 +54,23 @@ for record in result:
     print(record["commentText"])
     resultados = ner_analyzer.predict(record["commentText"].split("."))
     if hasattr(resultados, '__iter__'):
+        ntokens = 0
         for resultado in resultados:
+            ntokens = len(resultado.labels) + ntokens
             entidades = resultado.entities
             for entidad in entidades:
                 crear_entidad_grafo(record["comment"], entidad["text"], entidad["type"], graph)
     else:
         entidades = resultados.entities
+        ntokens = len(resultados.labels)
         for entidad in entidades:
             crear_entidad_grafo(record["comment"], entidad["text"], entidad["type"], graph)
+
+    if ntokens < 150:
+        sentiment_score = analyzer.predict(record["commentText"])
+        sentiment_score_neg = sentiment_score.probas["NEG"]
+        sentiment_score_neu = sentiment_score.probas["NEU"]
+        sentiment_score_pos = sentiment_score.probas["POS"]
+        sentiment = sentiment_score.output
+        print(sentiment)
+        add_properties_to_nodes(record["comment"],sentiment,sentiment_score_neg,sentiment_score_neu,sentiment_score_pos,graph)
