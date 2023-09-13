@@ -1,14 +1,11 @@
 import nltk
 from pysentimiento import create_analyzer
-from pysentimiento.preprocessing import preprocess_tweet
-import spacy
 from nltk.probability import FreqDist
 from py2neo import Graph,Node, Relationship
-from nltk.stem import WordNetLemmatizer
-from nltk.stem.snowball import SnowballStemmer
+
 import nltk.data
 
-import string
+
 
 def scoreCommentLargo(comment,idioma,analyzer):
     tokenizer = nltk.data.load('tokenizers/punkt/spanish.pickle')
@@ -29,25 +26,6 @@ def scoreCommentLargo(comment,idioma,analyzer):
 
     return sentiment_score_neg,sentiment_score_neu,sentiment_score_pos
 
-def clean_text(text):
-    # Convert text to lowercase
-    text = text.lower()
-    # Remove punctuation
-    special_chars = ''.join([char for char in string.punctuation if char not in [',', '.','?','!']])
-    text = text.translate(str.maketrans('', '', special_chars))
-    # Remove whitespace and newlines
-    text = text.strip()
-    return text
-
-def lemmatize_word(word, language):
-    if language == "english":
-        lemmatizer = WordNetLemmatizer()
-        lemmatized_word = lemmatizer.lemmatize(word)
-    elif language == "spanish":
-        stemmer = SnowballStemmer("spanish")
-        lemmatized_word = stemmer.stem(word)
-    return lemmatized_word
-
 
 def add_properties_to_nodes(node,topics,sentiment_score_neg,sentiment_score_neu,sentiment_score_pos,graph):
     # Add Topics property (list of words)
@@ -60,30 +38,7 @@ def add_properties_to_nodes(node,topics,sentiment_score_neg,sentiment_score_neu,
     graph.push(node)
 
 
-def create_entity_and_connect(node, entity_name, entity_type,graph):
 
-    # Check if the Entity node already exists
-    query = f"MATCH (entity:Entity {{name: '{entity_name}', type: '{entity_type}'}}) RETURN entity"
-    result = graph.run(query).data()
-    if len(result) > 0:
-        # Entity node already exists, connect it to the node
-        entity_node = result[0]['entity']
-        relationship = Relationship(node, "HAS_ENTITY", entity_node)
-        graph.create(relationship)
-        print("Conectado al nodo", entity_name, "(", entity_type, ")")
-    else:
-        # Entity node does not exist, create it and connect it to the character node
-        entity_node = Node("Entity", name=entity_name, type=entity_type)
-        graph.merge(entity_node, 'Entity', ("name","type"))
-        relationship = Relationship(node, "HAS_ENTITY", entity_node)
-        graph.merge(relationship, "HAS_ENTITY", 'name')
-        print("Nodo",entity_name,"(",entity_type,") creado")
-
-
-# Initialize spaCy with language models
-nlp_en = spacy.load("en_core_web_sm")
-
-nlp_es = spacy.load("es_core_news_sm")
 
 def checkTieneEntity(comment):
     query = f"MATCH (c:Comment)-[:HAS_ENTITY]->(e:Entity) WHERE c.id = '{comment['id']}' RETURN c"
@@ -94,7 +49,7 @@ def checkTieneEntity(comment):
 
 def analyze_comment(comment,idioma,analyzer):
     # Clean the text
-    doc = nlp_es(comment)
+    doc = 1
 
     cleaned_words = [token.lemma_ for token in doc if token.is_alpha and not token.is_stop]
 
@@ -121,44 +76,54 @@ def analyze_comment(comment,idioma,analyzer):
 
     return sentiment_score_neg, sentiment_score_neu, sentiment_score_pos, topics,entidades
 
+
+
+def crear_entidad_grafo(node, entity_name, entity_type,graph):
+
+    # Check if the Entity node already exists
+    query = f"MATCH (entity:Entity {{name: '{entity_name}', type: '{entity_type}'}}) RETURN entity"
+    result = graph.run(query).data()
+    if len(result) > 0:
+        # Entity node already exists, connect it to the node
+        entity_node = result[0]['entity']
+        relationship = Relationship(node, "HAS_ENTITY", entity_node)
+        graph.create(relationship)
+        print("Conectado al nodo", entity_name, "(", entity_type, ")")
+    else:
+        # Entity node does not exist, create it and connect it to the character node
+        entity_node = Node("Entity", name=entity_name, type=entity_type)
+        graph.merge(entity_node, 'Entity', ("name","type"))
+        relationship = Relationship(node, "HAS_ENTITY", entity_node)
+        graph.merge(relationship, "HAS_ENTITY", 'name')
+        print("Nodo",entity_name,"(",entity_type,") creado")
+
+
+
+
+
 graph = Graph('bolt://localhost:7687', auth=('neo4j', 'etsisi123'))
 
 
 cypher_query = """
-MATCH (comment:Comment)-[:REPLIED_TO]->(post:Post)
-WHERE NOT EXISTS((comment)-[:HAS_ENTITY]->(:Entity))
-RETURN comment, comment.body AS commentText, post.dioma AS idioma, post.id AS id
+MATCH (comment:Comment)-[:REPLIED_TO]->()
+RETURN comment, comment.body AS commentText
+LIMIT 100
 """
 result = graph.run(cypher_query).data()
 
 analyzer = create_analyzer(task="sentiment", lang="es")
 
+ner_analyzer = create_analyzer(task="ner", lang="es")
 
-progreso = 0
-# Iterate over the comments and analyze each one
-for index,record in enumerate(result):
-    if index > 4993:
-        if not checkTieneEntity(record["comment"]):
-            comment_text = clean_text(record["commentText"])
-
-            # Skip empty or None comments
-            if comment_text:
-                sentiment_score_neg,sentiment_score_neu,sentiment_score_pos, comment_topics,entities = analyze_comment(comment_text,record["idioma"],analyzer)
-
-                for entidad in entities.entities:
-                    create_entity_and_connect(record["comment"], entidad["text"], entidad["type"], graph)
-
-                temas = list(comment_topics)
-
-                listaTemas = []
-                for tema in temas:
-                    listaTemas.append(tema[0])
-
-                add_properties_to_nodes(record["comment"],listaTemas,sentiment_score_neg,sentiment_score_neu,sentiment_score_pos,graph)
-                progreso = progreso + 1
-        else:
-            progreso = progreso + 1
-
-        print(progreso,"/",len(result)," ---> ",progreso/len(result)*100,"%")
+for record in result:
+    print(record["commentText"])
+    resultados = ner_analyzer.predict(record["commentText"].split("."))
+    if hasattr(resultados, '__iter__'):
+        for resultado in resultados:
+            entidades = resultado.entities
+            for entidad in entidades:
+                crear_entidad_grafo(record["comment"], entidad["text"], entidad["type"], graph)
     else:
-        progreso = progreso + 1
+        entidades = resultados.entities
+        for entidad in entidades:
+            crear_entidad_grafo(record["comment"], entidad["text"], entidad["type"], graph)
