@@ -1,35 +1,76 @@
 from bertopic import BERTopic
-from bertopic.representation import KeyBERTInspired
-from py2neo import Graph
+import pandas as pd
+import re
+from neo4j import GraphDatabase
+from neo4jDriver import *
 
+def remove_links(text):
 
-graph = Graph('bolt://localhost:7687', auth=('neo4j', 'etsisi123'))
+    url_pattern = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+    text = re.sub(r'\*\*', '', text)
+    text = re.sub(r'\n', '', text)
+    text = re.sub(r'\r', '', text)
 
-cypher_query_post = """
-MATCH (post:Post)
-WHERE post.content <> ""
-RETURN post.content AS postText;
-"""
+    return re.sub(url_pattern, '', text)
+
+graph = GraphDatabase.driver('bolt://localhost:7687', auth=('neo4j', 'etsisi123'))
 
 cypher_query_comment = """
-MATCH (comment:Comment)-[rt:REPLIED_TO]->()-[bt:BELONGS_TO]->(subreddit:Subreddit{name:'SpainPolitics'}) 
-RETURN comment.body AS commentText
+MATCH (comment:Comment)
+RETURN comment AS comment;
 """
-resultComment = graph.run(cypher_query_comment).data()
-resultPost = graph.run(cypher_query_post).data()
-contenido =[]
+
+with graph.session() as session:
+    resultComment = session.run(cypher_query_comment).data()
+
+contenido = []
+commentIds = []
+timestamps = []
+
 
 for record in resultComment:
-    contenido.append(record["commentText"])
+    timestamps.append(record["comment"]["created_utc"])
+    commentIds.append(record["comment"]["id"])
+    comment_text = record["comment"]["body"]
+    comment_text_without_links = remove_links(comment_text)
+    contenido.append(comment_text_without_links)
+
+topic_model = BERTopic(verbose=True).load("MODELO_FINAL",embedding_model="hiiamsid/sentence_similarity_spanish_es")
 
 
+representative_docs = pd.DataFrame({"Document": contenido, "Topic": topic_model.topics_})
 
-topic_model = BERTopic.load("D:\TFGReddit\modelo")
+doc_info = topic_model.get_document_info( contenido)
 
-topic_model.topic_embeddings_
 
-topic_model.visualize_barchart().show()
+docs = contenido
 
-topic_model.visualize_heatmap().show()
+documents = pd.DataFrame({"Document": docs,
+                          "ID": range(len(docs)),
+                          "Topic": topic_model.topics_})
 
-print(topic_model.get_topic_info())
+repr_docs, _, _, _ = topic_model._extract_representative_docs(c_tf_idf=topic_model.c_tf_idf_,
+                                                          documents=documents,
+nr_samples = 80000,
+                                                          topics=topic_model.topic_representations_,)
+
+
+representativedocs = pd.DataFrame(repr_docs)
+
+"""
+#Añadir topics al grafo
+
+df = pd.DataFrame({"Document": contenido,"id":commentIds, "Topic": topic_model.topics_})
+
+for key, value in topic_model.get_topics().items():
+        valores = []
+        tema = str(key)
+        for word in value:
+            valores.append(word[0])
+        new_dataframe = df[df['Topic'] == key].copy()
+        crearNodoTema(tema,valores,new_dataframe['id'].tolist())
+        
+        
+"""
+
+

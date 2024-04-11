@@ -2,7 +2,6 @@ import praw
 from praw.models import MoreComments
 from py2neo import Graph, Node, Relationship
 import datetime,time
-from langdetect import detect
 
 # Initialize the Reddit API client
 reddit = praw.Reddit(client_id="4sn_H1XsYXdsaBCu08CbrA",
@@ -27,7 +26,6 @@ def save_post_to_neo4j(post):
 
             # Crea el nodo del subreddit y la relacion con el post
             crearNodoSubreddit(post, post_node)
-
             post_node = crearNodoPost(post)
             author_node = crearNodoUsuario(post)
             posted_rel = Relationship(author_node, 'POSTED', post_node)
@@ -66,14 +64,6 @@ def crearNodoPost(post):
         return post_node
     else:
         return obtenerNodoPost(post.id)
-
-def crearNodoRespuesta(reply):
-    reply_node = Node('Reply', id=reply.id, body=reply.body,
-                      created_utc=datetime.datetime.fromtimestamp(reply.created_utc).strftime('%d/%m/%Y %H:%M:%S'),
-                      score=reply.score, permalink=reply.permalink, gilded=reply.gilded,
-                      controversiality=reply.controversiality, distinguished=reply.distinguished)
-    graph.merge(reply_node, 'Reply', 'id')
-    return reply_node
 
 
 def crearNodoComentario(comment):
@@ -118,6 +108,14 @@ def crearNodoSubreddit(post, post_node):
     belongs_to_rel = Relationship(post_node, 'BELONGS_TO', subreddit_node)
     graph.merge(belongs_to_rel, 'BELONGS_TO', 'id')
 
+def crearNodoTema(name, values,commentids):
+    tema_node = Node('Topic', name=name, values=values)
+    graph.merge(tema_node, 'Topic', 'name')
+
+    for commentid in commentids:
+        relacionarComentarioTema(name,commentid)
+
+
 
 def get_comments():
     query = "MATCH (c:Comment) RETURN c"
@@ -151,6 +149,10 @@ def obtenerNodoComentario(id):
     for record in result:
         comentario = record['n']
     return comentario
+
+def relacionarComentarioTema(name,id):
+    query = f"MATCH(tema: Topic) WHERE tema.name = '{name}' MATCH(comment: Comment) WHERE comment.id= '{id}' CREATE(tema)<-[: HAS_TOPIC]-(comment)"
+    graph.run(query).data()
 
 def obtenerNodoPost(id):
     query = f"MATCH (n:Post) WHERE n.id = '{id}' RETURN n"
@@ -188,10 +190,8 @@ def incluircomentarios(comment,post_node):
         if isinstance(reply, MoreComments):
             continue
         if reply.author is not None:
-            # Crea el nodo autor de la respuesta al comentario
             user_node = crearNodoUsuario(reply)
             print("Reply: " + reply.author.name + " " + reply.id)
-            # Crea el nodo de la respuesta
             reply_node = crearNodoComentario(reply)
             padre_node = obtenerNodoComentario(reply.parent_id.split("t1_")[1])
             if padre_node is None:
@@ -199,7 +199,6 @@ def incluircomentarios(comment,post_node):
                     padre_node = crearNodoComentario(reddit.comment(reply.parent_id.split("t3_")[1]))
                 else:
                     padre_node = crearNodoComentario(reddit.comment(reply.parent_id.split("t1_")[1]))
-            # Crea la relacion entre el nodo del comentario y el nodo de su autor (Usuario)
             obtenerPonerRelacionPost(padre_node["id"], post_node)
             authored_rel = Relationship(user_node, 'AUTHORED', reply_node)
             graph.merge(authored_rel, 'AUTHORED', 'id')
