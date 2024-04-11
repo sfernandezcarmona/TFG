@@ -39,7 +39,7 @@ hdbscan_model = HDBSCAN(min_cluster_size=20,min_samples=5, metric='euclidean')
 
 embedding_model = SentenceTransformer('hiiamsid/sentence_similarity_spanish_es')
 
-#embeddings precomputados
+#embeddings precomputados (no están en github porque ocupan demasiado)
 with open('embeddings\doc_embedding.pickle', 'rb') as pkl:
     embeddings = pickle.load(pkl)
 
