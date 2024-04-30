@@ -7,11 +7,11 @@ class Reddit:
                      "Podemos", "Ultraderecha", "Ultraizquierda","Fascista","Fascismo","Comunismo","Comunista"]
 
     reddit = praw.Reddit(
-        client_id="4sn_H1XsYXdsaBCu08CbrA",
-        client_secret="_ZVU_3dfw9qefABWeqKJ2FKMtfkuIg",
-        password="etsisi123",
-        username="bp0330UPM",
-        user_agent="TFGBP0330",
+        client_id="",
+        client_secret="",
+        password="",
+        username="",
+        user_agent="",
     )
 
     #Devuelve hasta 1000 publicaciones del usuario indicado (limitacion de la API)
