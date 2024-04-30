@@ -3,15 +3,13 @@ from praw.models import MoreComments
 from py2neo import Graph, Node, Relationship
 import datetime,time
 
-# Initialize the Reddit API client
-reddit = praw.Reddit(client_id="4sn_H1XsYXdsaBCu08CbrA",
-                    client_secret="_ZVU_3dfw9qefABWeqKJ2FKMtfkuIg",
-                     password="etsisi123",
-                     username="bp0330UPM",
-                     user_agent="TFGBP0330")
+reddit = praw.Reddit(client_id="",
+                    client_secret="",
+                     password="",
+                     username="",
+                     user_agent="")
 
-# Initialize the Neo4j graph database
-graph = Graph('bolt://localhost:7687', auth=('neo4j', 'etsisi123'))
+graph = Graph('bolt://localhost:7687', auth=('neo4j', ''))
 
 
 
